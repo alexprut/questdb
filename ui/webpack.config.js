@@ -1,10 +1,11 @@
 const path = require("path")
-const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin")
-const HtmlWebpackPlugin = require("html-webpack-plugin")
 const { CleanWebpackPlugin } = require("clean-webpack-plugin")
 const CopyWebpackPlugin = require("copy-webpack-plugin")
-const AnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin
+const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin")
+const HtmlWebpackPlugin = require("html-webpack-plugin")
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
+const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
+const AnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin
 
 const PORT = 9001
 const BACKEND_PORT = 9000
@@ -20,6 +21,13 @@ const PATHS = {
   src: `${__dirname}/src`,
 }
 
+const devPlugins = [
+  new ForkTsCheckerWebpackPlugin({
+    eslint: true,
+    measureCompilationTime: false,
+  }),
+]
+
 const basePlugins = [
   new CleanWebpackPlugin(),
   new HtmlWebpackPlugin({
@@ -33,23 +41,22 @@ const basePlugins = [
       removeRedundantAttributes: true,
       removeScriptTypeAttributes: true,
       removeStyleLinkTypeAttributes: true,
-      useShortDoctype: true
+      useShortDoctype: true,
     },
   }),
   new MiniCssExtractPlugin({
-    filename: "qdb.css",
-  }),
-]
-
-const devPlugins = [
-  new ForkTsCheckerWebpackPlugin({
-    eslint: true,
-    measureCompilationTime: false,
+    filename: isProdBuild ? "[name].[hash].css" : "[name].css",
+    chunkFilename: isProdBuild ? "[id].[hash].css" : "[id].css",
   }),
 ]
 
 const prodPlugins = [
   new CopyWebpackPlugin([{ from: "./assets/", to: "assets/" }]),
+  new OptimizeCSSAssetsPlugin({
+    cssProcessorPluginOptions: {
+      preset: ['default', { discardComments: { removeAll: true } }],
+    },
+  })
 ]
 
 module.exports = {
@@ -68,9 +75,12 @@ module.exports = {
     },
   },
   mode: isProdBuild ? "production" : "development",
-  entry: "./src/js/index",
+  entry: {
+    qdb: "./src/js/index",
+  },
   output: {
-    filename: "qdb.js",
+    filename: isProdBuild ? "[name].[hash].js" : "[name].js",
+    chunkFilename: isProdBuild ? "[id].[hash].js" : "[id].js",
   },
   resolve: {
     extensions: [".ts", ".tsx", ".js"],
@@ -93,6 +103,10 @@ module.exports = {
         test: /\.(ts|js)x?$/,
         exclude: /node_modules/,
         loader: "babel-loader",
+      },
+      {
+        test: /\worklet\.(ts|js)$/,
+        loaders: ["worker-loader", "babel-loader"],
       },
       {
         test: /\.css$/i,
